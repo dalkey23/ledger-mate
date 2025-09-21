@@ -65,13 +65,7 @@
     border-bottom: 1px solid #f3f4f6;
 }
 
-.aoa-row:first-child {
-    position: sticky;
-    top: 0;
-    background: #f9fafb;
-    font-weight: 600;
-    z-index: 1;
-}
+
 
 .aoa-cell {
     padding: 8px 10px;

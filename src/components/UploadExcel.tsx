@@ -3,13 +3,11 @@ import { parseWorkbook, type Cell } from '../utils/excel';
 import PreviewModal from './PreviewModal';
 import "./UploadExcel.css";
 
-const UploadExcel = (): any => {
-
+const UploadExcel: React.FC = () => {
 
   const [aoa, setAoa] = useState<Cell[][] | null>(null);
   const [open, setOpen] = useState(false);
 
-  const [selectedAccount, setSelectedAccount] = useState<string>("");
   const accountOptions = [
     "우리 101",
     "우리 626961"
@@ -30,7 +28,11 @@ const UploadExcel = (): any => {
     }
     e.currentTarget.value = '';
   };
-
+  const handleConfirm = (payload: { startRow: number; selectedAccount: string; selectedChecks: boolean[]; }) => {
+    const { startRow, selectedAccount, selectedChecks } = payload;
+    console.log("확정:", { startRow, selectedAccount, selectedIndices: selectedChecks.map((v, i) => v ? i : null).filter(v => v !== null) });
+    setOpen(false);
+  };
 
 
   return (
@@ -46,11 +48,10 @@ const UploadExcel = (): any => {
       {aoa && (
         <PreviewModal
           open={open}
-          onClose={() => setOpen(false)}
           aoa={aoa}
-          selectedAccount={selectedAccount}
-          onChangeAccount={setSelectedAccount}
           accountOptions={accountOptions}
+          onClose={() => setOpen(false)}
+          onConfirm={handleConfirm}
         />
       )}
     </div>
