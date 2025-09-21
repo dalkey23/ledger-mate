@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { parseWorkbook, type Cell } from '../utils/excel';
+import PreviewModal from './PreviewModal';
 import "./UploadExcel.css";
 
 const UploadExcel = (): any => {
@@ -7,6 +8,12 @@ const UploadExcel = (): any => {
 
   const [aoa, setAoa] = useState<Cell[][] | null>(null);
   const [open, setOpen] = useState(false);
+
+  const [selectedAccount, setSelectedAccount] = useState<string>("");
+  const accountOptions = [
+    "우리 101",
+    "우리 626961"
+  ];
 
   const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (
     e
@@ -36,46 +43,15 @@ const UploadExcel = (): any => {
           onChange={onFileChange}
         />
       </div>
-      {open && aoa && (
-        <div className="uex-backdrop" role="dialog" aria-modal="true">
-          <div className="uex-modal">
-            <div className="uex-modal__header">
-              <strong>미리보기</strong>
-              <button
-                onClick={() => setOpen(false)}
-                className="uex-iconbtn"
-                aria-label="닫기"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="uex-tablewrap">
-              <div>
-                {aoa.map((row, rIdx) => (
-                  <div key={rIdx} className="aoa-row">
-                    {row.map((cell, cIdx) => (
-                      <div key={cIdx} className="aoa-cell">
-                        {cell === null || cell === undefined ? "" : String(cell)}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="uex-modal__footer">
-              <span>총 {aoa.length} 행</span>
-              <div className="uex-actions">
-                <button
-                  onClick={() => setOpen(false)}
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {aoa && (
+        <PreviewModal
+          open={open}
+          onClose={() => setOpen(false)}
+          aoa={aoa}
+          selectedAccount={selectedAccount}
+          onChangeAccount={setSelectedAccount}
+          accountOptions={accountOptions}
+        />
       )}
     </div>
   )
