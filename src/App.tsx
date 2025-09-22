@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./App.css";
 import UploadExcel from "./components/UploadExcel";
-import { getAllRecords, type SavedRecord } from "./db/indexedDb";
+import { getAllRecords, deleteAllRecords, type SavedRecord } from "./db/indexedDb";
 
 function App() {
   const [rows, setRows] = useState<SavedRecord[]>([]);
@@ -23,6 +23,20 @@ function App() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!confirm("정말 전체 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+    try {
+      setLoading(true);
+      await deleteAllRecords();
+      await load();
+    } catch (e) {
+      console.error(e);
+      alert("전체 삭제 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
   }, []);
@@ -39,6 +53,9 @@ function App() {
           <button onClick={load} disabled={loading}>
             {loading ? "불러오는 중..." : "새로고침"}
           </button>
+          <button onClick={handleDeleteAll} disabled={loading || rows.length === 0}>
+              전체삭제
+            </button>
         </div>
 
         {error && <p style={{ color: "crimson" }}>{error}</p>}

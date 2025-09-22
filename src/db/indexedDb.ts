@@ -54,4 +54,20 @@ export async function getAllRecords(): Promise<SavedRecord[]> {
   });
 }
 
+export async function deleteAllRecords(): Promise<number> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const os = tx.objectStore(STORE);
+      const countReq = os.count();
+      countReq.onsuccess = () => {
+        const total = countReq.result || 0;
+        const clearReq = os.clear();
+        clearReq.onsuccess = () => resolve(total);
+        clearReq.onerror = () => reject(clearReq.error);
+      };
+      countReq.onerror = () => reject(countReq.error);
+    });
+  }
+
 
