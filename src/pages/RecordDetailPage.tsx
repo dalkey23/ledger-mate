@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getRecordById, type SavedRecord } from "../db/indexedDb";
+import { getRecordById  } from "../features/records/records.repo";
+import { type SavedRecord } from "../features/records/types"
+
 
 const RecordDetailPage: React.FC = () => {
   const { id } = useParams();

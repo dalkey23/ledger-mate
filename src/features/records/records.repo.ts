@@ -1,0 +1,72 @@
+import { openDB } from "../../db/indexedDb";
+import type { SavedRecord } from "./types";
+
+const STORE = "records";
+
+export async function saveRecords(records: SavedRecord[]): Promise<number> {
+  if (records.length === 0) return 0;
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const os = tx.objectStore(STORE);
+    for (const r of records) os.add(r);
+    tx.oncomplete = () => resolve(records.length);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getAllRecords(): Promise<SavedRecord[]> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const os = tx.objectStore(STORE);
+    const req = os.getAll();
+    req.onsuccess = () => resolve(req.result as SavedRecord[]);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteAllRecords(): Promise<number> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const os = tx.objectStore(STORE);
+    const countReq = os.count();
+    countReq.onsuccess = () => {
+      const total = countReq.result || 0;
+      const clearReq = os.clear();
+      clearReq.onsuccess = () => resolve(total);
+      clearReq.onerror = () => reject(clearReq.error);
+    };
+    countReq.onerror = () => reject(countReq.error);
+  });
+}
+
+export async function getRecordById(id: number): Promise<SavedRecord | undefined> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readonly");
+    const os = tx.objectStore(STORE);
+    const req = os.get(id);
+    req.onsuccess = () => resolve(req.result as SavedRecord | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function updateRecord(id: number, patch: Partial<SavedRecord>): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const os = tx.objectStore(STORE);
+    const getReq = os.get(id);
+    getReq.onsuccess = () => {
+      const cur = getReq.result as SavedRecord | undefined;
+      if (!cur) { reject(new Error("record not found")); return; }
+      const next: SavedRecord = { ...cur, ...patch, id: cur.id };
+      const putReq = os.put(next);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
+  });
+}

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import "./UploadExcel.css"; // 모달 스타일 재사용
-import { getRecordById, updateRecord, type SavedRecord } from "../db/indexedDb";
+import { getRecordById, updateRecord  } from "../features/records/records.repo";
+import { type SavedRecord } from "../features/records/types"
+
 import { useNavigate, useParams } from "react-router-dom";
 
 const EditRecordModal: React.FC = () => {

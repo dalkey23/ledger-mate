@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { parseWorkbook, type Cell } from '../utils/excel';
-import { saveRecords, type SavedRecord } from "../db/indexedDb";
+import { saveRecords  } from "../features/records/records.repo";
+import { type SavedRecord } from "../features/records/types"
 import PreviewModal from './PreviewModal';
 import "./UploadExcel.css";
 
@@ -12,7 +13,7 @@ const parseNum = (v: unknown) => {
 const findCol = (headers: any[], keys: string[]) =>
   headers.findIndex((h) => keys.some((k) => norm(h).includes(norm(k))));
 const dateKeys = ["거래일시", "거래일자", "일시", "거래시간"];
-const descKeys = ["기재내용", "내용", "적요내용", "적요"];
+const descKeys = ["기재내용", "내용"];
 const expenseKeys = ["지급", "출금", "지출"];
 const incomeKeys = ["입금", "수입"];
 

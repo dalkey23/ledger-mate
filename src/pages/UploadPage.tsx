@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import UploadExcel from "../components/UploadExcel";
-import { getAllRecords, deleteAllRecords, type SavedRecord } from "../db/indexedDb";
+import { getAllRecords, deleteAllRecords  } from "../features/records/records.repo";
+import { type SavedRecord } from "../features/records/types"
 
 const UploadPage: React.FC = () => {
   const [rows, setRows] = useState<SavedRecord[]>([]);

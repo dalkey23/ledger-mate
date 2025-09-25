@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { getAllRecords, deleteAllRecords, type SavedRecord } from "../db/indexedDb";
+import { getAllRecords, deleteAllRecords  } from "../features/records/records.repo";
+import { type SavedRecord } from "../features/records/types"
 
 const ReceiptsPage: React.FC = () => {
   const location = useLocation();
