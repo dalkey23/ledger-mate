@@ -1,15 +1,23 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import styled from "@emotion/styled";
+import { Container } from "../components/Container";
+import { Card } from "../components/Card";
+
+const Title = styled.h1` margin: 0 0 8px; font-size: 40px; letter-spacing: -0.02em; `;
+
 const LandingPage: React.FC = () => {
   return (
-    <section>
-      <h1>Ledger Mate</h1>
-      <p>엑셀 업로드 또는 내역 확인으로 이동하세요.</p>
-      <div>
-        <Link to="/upload">엑셀 업로드</Link>
-        <Link to="/records">내역 확인</Link>
-      </div>
-    </section>
+    <Container>
+      <Card>
+        <Title>LedgerMate</Title>
+        <div style={{ display: "flex", gap: 12 }}>
+          <Link to="/upload">엑셀 업로드</Link>
+          <Link to="/records">내역 확인</Link>
+        </div>
+      </Card>
+    </Container>
+
   );
 };
 
