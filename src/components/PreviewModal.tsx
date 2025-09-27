@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./UploadExcel.css";
 
-// 🔹 추가: 파티 레포 import
+// 🔹 파티 레포 import
 import { searchParties, createParty, incrementPartyFreq } from "../features/parties/parties.repo";
 import type { Party } from "../features/parties/types";
 
@@ -36,6 +36,7 @@ const parseNum = (v: unknown) => {
 
 const expenseKeys = ["지급", "출금", "지출"];
 const incomeKeys = ["입금", "수입"];
+const descKeys = ["기재내용"]; // ✅ “기재내용” 열 탐지용
 
 const normalize = (s: unknown) => String(s ?? "").trim();
 
@@ -52,13 +53,6 @@ const DEFAULT_HIDE_PATTERNS = [
 
 /** ─────────────────────────────────────────────
  * PartyPicker: DB 검색/추가 가능한 콤보박스
- * props:
- *  - value: 현재 문자열 값
- *  - onChange: 선택/추가 확정 시 문자열 전달
- * 동작:
- *  - 입력 → searchParties 디바운스 호출
- *  - 결과 없으면 "새 거래처 추가" 가상 항목 제공
- *  - 선택 시 freq 증가
  * ────────────────────────────────────────────*/
 const PartyPicker: React.FC<{
   value: string;
@@ -145,7 +139,6 @@ const PartyPicker: React.FC<{
       setActive((a) => Math.max(a - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      // active가 리스트 범위면 기존 선택, 아니면 새로 추가
       if (active < list.length) {
         commitExisting(list[active]);
       } else {
@@ -250,6 +243,55 @@ const PartyPicker: React.FC<{
   );
 };
 
+/** ✅ 거래처 후보 추출 규칙
+ *  기본: 첫 토큰 → 토큰 내 괄호 '(' 또는 '（' 앞까지만
+ *  (1) 결과가 "주식회사"면 → 기재내용 원문 전체 반환
+ *  (2) 결과가 "기업|신한|농협|국민|카카|토뱅|하나"로 시작하면
+ *      → 원문에서 해당 접두어(+구분자) 제거 후 다시 첫 토큰(+괄호 컷)
+ */
+function extractPartyFromMemo(memo: unknown): string {
+  const raw = String(memo ?? "").trim();
+  if (!raw) return "미확인거래처";
+
+  // 1) 1차: 첫 토큰
+  const firstTokenRaw = (raw.split(/\s+/)[0] ?? "").trim();
+  let first = firstTokenRaw;
+
+  // 1-1) 토큰 내 괄호 컷
+  const cutIdxA = first.indexOf("(");
+  const cutIdxB = first.indexOf("（");
+  const cutIdx =
+    cutIdxA < 0 ? cutIdxB : cutIdxB < 0 ? cutIdxA : Math.min(cutIdxA, cutIdxB);
+  if (cutIdx >= 0) first = first.slice(0, cutIdx).trim();
+
+  // (1) "주식회사"면 원문 전체
+  if (first === "주식회사") {
+    return raw;
+  }
+
+  // (2) 은행/플랫폼 접두어 제거 후 다시 계산
+  const prefixRe = /^(기업|신한|농협|국민|카카|토뱅|하나|금고)[\s\-_/|·]*/; // 시작부 접두어 + 공백/구분자
+  if (prefixRe.test(first)) {
+    const stripped = raw.replace(prefixRe, "").trim();
+    if (!stripped) return "미확인거래처";
+
+    // 접두어 제거된 원문에서 다시 첫 토큰 추출
+    let t = (stripped.split(/\s+/)[0] ?? "").trim();
+    const sA = t.indexOf("(");
+    const sB = t.indexOf("（");
+    const sCut =
+      sA < 0 ? sB : sB < 0 ? sA : Math.min(sA, sB);
+    if (sCut >= 0) t = t.slice(0, sCut).trim();
+    return t || "미확인거래처";
+  }
+
+  return first || "미확인거래처";
+}
+
+// 이름 정규화 키(완전일치 판단 보조용) - 필요시 사용
+const toSlug = (name: string) =>
+  name.toLowerCase().replace(/\s+/g, "").replace(/[^\p{Script=Hangul}a-z0-9]/giu, "");
+
 const PreviewModal: React.FC<Props> = ({
   open,
   aoa,
@@ -323,6 +365,7 @@ const PreviewModal: React.FC<Props> = ({
 
   const expenseIdx = findCol(headerCells, expenseKeys);
   const incomeIdx = findCol(headerCells, incomeKeys);
+  const descIdx = findCol(headerCells, descKeys); // ✅ “기재내용” 인덱스
   const insertAfterVisible = (() => {
     const visIncomePos = visibleIdxs.indexOf(incomeIdx);
     if (visIncomePos !== -1) return visIncomePos;
@@ -331,13 +374,64 @@ const PreviewModal: React.FC<Props> = ({
     return visibleIdxs.length - 1;
   })();
 
-  const handleConfirm = () => {
-    onConfirm({
-      startRow,
-      selectedAccount,
-      selectedChecks: checks,
-      parties,
+  // ✅ 초기에 "기재내용"에서 파싱한 거래처를 자동 프리필
+  useEffect(() => {
+    if (descIdx < 0) return; // 기재내용 열이 없으면 스킵
+    setParties((prev) => {
+      const next = [...prev];
+      for (let rIdx = 0; rIdx < bodyView.length; rIdx++) {
+        const absIndex = bodyFromAbs + rIdx;
+        const current = next[absIndex];
+        // 이미 사용자가 수정한 값은 건드리지 않음
+        const isDefault = !current || current === "미확인거래처";
+        if (isDefault) {
+          const memo = aoa[absIndex]?.[descIdx];
+          const candidate = extractPartyFromMemo(memo);
+          next[absIndex] = candidate || "미확인거래처";
+        }
+      }
+      return next;
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [descIdx, bodyFromAbs, bodyView.length]); // body 범위가 바뀔 때마다 한 번
+
+  // ✅ 확인 시 DB 없는 거래처를 생성
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    try {
+      setSubmitting(true);
+      // 선택된 행들에서 거래처 수집
+      const picked = new Set<string>();
+      for (let i = bodyFromAbs; i < aoa.length; i++) {
+        if (!checks[i]) continue;
+        const name = (parties[i] ?? "").trim();
+        if (!name || name === "미확인거래처") continue;
+        picked.add(name);
+      }
+
+      // 존재 확인 후 없으면 생성
+      for (const name of picked) {
+        try {
+          const list = await searchParties(name, 5);
+          const exact = list.find((p) => p.name === name);
+          if (!exact) {
+            await createParty(name);
+          }
+        } catch {
+          // 검색/생성 에러는 개별 행에 영향을 최소화(무시하고 진행)
+        }
+      }
+
+      onConfirm({
+        startRow,
+        selectedAccount,
+        selectedChecks: checks,
+        parties,
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const [showColPicker, setShowColPicker] = useState(false);
@@ -499,7 +593,6 @@ const PreviewModal: React.FC<Props> = ({
                       )}
                       {idx === insertAfterVisible && (
                         <div className="aoa-cell">
-                          {/* 🔻 여기: 기존 input → PartyPicker 로 교체 */}
                           <PartyPicker
                             value={parties[absIndex] ?? "미확인거래처"}
                             onChange={(v) => {
@@ -548,11 +641,11 @@ const PreviewModal: React.FC<Props> = ({
             {selectedAccount ? ` · ${selectedAccount}` : ""}
           </span>
           <div className="uex-actions">
-            <button onClick={onClose} className="uex-btn uex-btn--secondary">
+            <button onClick={onClose} className="uex-btn uex-btn--secondary" disabled={submitting}>
               닫기
             </button>
-            <button onClick={handleConfirm} className="uex-btn uex-btn--primary">
-              확인
+            <button onClick={handleConfirm} className="uex-btn uex-btn--primary" disabled={submitting}>
+              {submitting ? "처리 중…" : "확인"}
             </button>
           </div>
         </div>
