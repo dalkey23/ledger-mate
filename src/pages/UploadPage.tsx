@@ -1,117 +1,126 @@
-import React, { useEffect, useState } from "react";
-import UploadExcel from "../components/UploadExcel";
-import { getAllRecords, deleteAllRecords  } from "../features/records/records.repo";
-import { type SavedRecord } from "../features/records/types"
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { parseWorkbook, type Cell } from "../utils/excel";
+import { saveRecords } from "../features/records/records.repo";
+import { type SavedRecord } from "../features/records/types";
+import PreviewPanel from "../components/PreviewPanel";
+
+
+const norm = (s: unknown) => String(s ?? "").replace(/\s|[().·]|원/g, "").toLowerCase();
+const parseNum = (v: unknown) => {
+  const n = Number(String(v ?? "").replace(/[,\s₩원]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+};
+const findCol = (headers: any[], keys: string[]) =>
+  headers.findIndex((h) => keys.some((k) => norm(h).includes(norm(k))));
+const dateKeys = ["거래일시", "거래일자", "일시", "거래시간"];
+const descKeys = ["기재내용", "내용"];
+const expenseKeys = ["지급", "출금", "지출"];
+const incomeKeys = ["입금", "수입"];
 
 const UploadPage: React.FC = () => {
-  const [rows, setRows] = useState<SavedRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [aoa, setAoa] = useState<Cell[][] | null>(null);
 
-  const load = async () => {
+  const accountOptions = [
+    "우리 101",
+    "우리 626961",
+  ];
+
+  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
     try {
-      setLoading(true);
-      setError(null);
-      const data = await getAllRecords();
-      const sorted = [...data].sort((a, b) => (b.id ?? 0) - (a.id ?? 0));
-      setRows(sorted);
-    } catch (e) {
-      console.error(e);
-      setError("저장된 데이터를 불러오지 못했습니다.");
-    } finally {
-      setLoading(false);
+      const data = await parseWorkbook(f);
+      setAoa(data);
+    } catch (err) {
+      console.error(err);
+      alert("엑셀 파싱 중 오류가 발생했습니다.");
     }
+    e.currentTarget.value = "";
   };
 
-  const handleDeleteAll = async () => {
-    if (!confirm("정말 전체 삭제할까요? 이 작업은 되돌릴 수 없습니다.")) return;
+  const handleConfirm = async (payload: {
+    startRow: number;             // 1-based
+    selectedAccount: string;
+    selectedChecks: boolean[];    // aoa 전체 길이 기준
+    parties: string[];            // aoa 전체 길이 기준
+  }) => {
+    if (!aoa) return;
+    const { startRow, selectedAccount, selectedChecks, parties } = payload;
+
+    const headerIdx = Math.max(1, startRow) - 1;
+    const headers = aoa[headerIdx] ?? [];
+    const bodyFrom = headerIdx + 1;
+
+    const dateIdx = findCol(headers, dateKeys);
+    const descIdx = findCol(headers, descKeys);
+    const outIdx  = findCol(headers, expenseKeys);
+    const incIdx  = findCol(headers, incomeKeys);
+
+    const records: SavedRecord[] = [];
+    for (let abs = bodyFrom; abs < aoa.length; abs++) {
+      if (!selectedChecks[abs]) continue;
+      const row = aoa[abs] ?? [];
+
+      const out = outIdx >= 0 ? parseNum(row[outIdx]) : 0;
+      const inc = incIdx >= 0 ? parseNum(row[incIdx]) : 0;
+
+      const kind =
+        out > 0 && inc === 0 ? "비용" :
+        inc > 0 && out === 0 ? "매출" :
+        inc > 0 && out > 0   ? "확인요망" :
+        "" as const;
+
+      records.push({
+        계좌: selectedAccount || "",
+        거래일시: String(dateIdx >= 0 ? row[dateIdx] ?? "" : ""),
+        기재내용: String(descIdx >= 0 ? row[descIdx] ?? "" : ""),
+        "지급(원)": out,
+        "입금(원)": inc,
+        구분: kind,
+        거래처: (parties[abs] ?? "미확인거래처") || "미확인거래처",
+        비고: "",
+      });
+    }
+
+    if (records.length === 0) {
+      alert("선택된 행이 없습니다.");
+      return;
+    }
+
     try {
-      setLoading(true);
-      await deleteAllRecords();
-      await load();
+      const saved = await saveRecords(records);
+      alert(`${saved}건 저장 완료`);
+      navigate("/records")
+      setAoa(null);
     } catch (e) {
       console.error(e);
-      alert("전체 삭제 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
+      alert("DB 저장 중 오류가 발생했습니다.");
     }
   };
-
-  useEffect(() => {
-    load();
-  }, []);
 
   return (
-    <main className="app">
+    <div>
+      <h2>엑셀 파일 업로드</h2>
+      <div>
+        <input
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={onFileChange}
+        />
+      </div>
 
-     
-      <UploadExcel />
-
-      <section className="app__placeholder" style={{ padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <h2 style={{ margin: 0 }}>저장된 내역</h2>
-          <button onClick={load} disabled={loading}>
-            {loading ? "불러오는 중..." : "새로고침"}
-          </button>
-          <button onClick={handleDeleteAll} disabled={loading || rows.length === 0}>
-              전체삭제
-            </button>
-        </div>
-
-        {error && <p style={{ color: "crimson" }}>{error}</p>}
-
-        {rows.length === 0 ? (
-          <p>저장된 데이터가 없습니다.</p>
-        ) : (
-          <div>
-            <table>
-            <thead>
-                <tr style={{ background: "#f9fafb" }}>
-                  <th style={th}>ID</th>
-                  <th style={th}>계좌</th>
-                  <th style={th}>거래일시</th>
-                  <th style={th}>기재내용</th>
-                  <th style={th}>지급(원)</th>
-                  <th style={th}>입금(원)</th>
-                  <th style={th}>구분</th>
-                  <th style={th}>거래처</th>
-                  <th style={th}>비고</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id ?? `${r.거래일시}-${r.기재내용}`}>
-                    <td style={td}>{r.id}</td>
-                    <td style={td}>{r.계좌}</td>
-                    <td style={td}>{r.거래일시}</td>
-                    <td style={td}>{r.기재내용}</td>
-                    <td style={td} align="right">{r["지급(원)"].toLocaleString()}</td>
-                    <td style={td} align="right">{r["입금(원)"].toLocaleString()}</td>
-                    <td style={td}>{r.구분}</td>
-                    <td style={td}>{r.거래처}</td>
-                    <td style={td}>{r.비고}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
-    </main>
+      {/* 🔹 aoa가 있으면 인라인 미리보기 패널 렌더 */}
+      {aoa && (
+        <PreviewPanel
+          aoa={aoa}
+          accountOptions={accountOptions}
+          onConfirm={handleConfirm}
+        />
+      )}
+    </div>
   );
-}
-
-const th: React.CSSProperties = {
-  textAlign: "left",
-  padding: "10px 8px",
-  borderBottom: "1px solid #eee",
-  whiteSpace: "nowrap",
-};
-
-const td: React.CSSProperties = {
-  padding: "8px",
-  borderBottom: "1px solid #f5f5f5",
-  verticalAlign: "top",
 };
 
 export default UploadPage;
