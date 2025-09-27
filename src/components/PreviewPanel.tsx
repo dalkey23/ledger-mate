@@ -1,6 +1,112 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { searchParties, createParty, incrementPartyFreq } from "../features/parties/parties.repo";
 import type { Party } from "../features/parties/types";
+import styled from "@emotion/styled";
+import { Button } from "../components/Button";
+import { Card } from "../components/Card";
+
+/* ================= styled ================= */
+const Section = styled(Card)`
+  margin-top: 20px;
+`;
+
+const HeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  label {
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  input, select {
+    padding: 6px 8px;
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    border-radius: 6px;
+    font-size: 14px;
+  }
+`;
+
+const ColPicker = styled.div`
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.surface};
+
+  > div {
+    margin-bottom: 8px;
+  }
+
+  label {
+    display: block;
+    margin: 4px 0;
+  }
+`;
+
+const TableWrap = styled.div`
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+`;
+
+const TableHeader = styled.div`
+  display: grid;
+  grid-auto-flow: column;
+  background: ${({ theme }) => theme.colors.surface};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  font-weight: 600;
+  font-size: 14px;
+
+  > div {
+    padding: 8px;
+    min-width: 120px;
+    border-right: 1px solid ${({ theme }) => theme.colors.border};
+  }
+`;
+
+const TableRow = styled.div`
+  display: grid;
+  grid-auto-flow: column;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  font-size: 14px;
+
+  > div {
+    padding: 8px;
+    min-width: 120px;
+    border-right: 1px solid ${({ theme }) => theme.colors.border};
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:nth-of-type(even) {
+    background: ${({ theme }) => theme.colors.bg};
+  }
+`;
+
+const Footer = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  font-size: 14px;
+`;
+
+
+const PartyInput = styled.input`
+  padding: 6px 8px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 6px;
+  font-size: 13px;
+  width: 100%;
+`;
+
+
 
 export type Cell = string | number | boolean | Date | null | undefined;
 
@@ -373,11 +479,8 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
         setVisibleCols(new Array(headerCells.length).fill(val));
 
     return (
-        <section >
-
-            <div >
-                <strong>미리보기</strong>
-
+        <Section >
+            <HeaderRow>
                 <label >시작 행</label>
                 <input
                     type="text"
@@ -391,11 +494,9 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
 
                     placeholder="1"
                 />
-
                 <label htmlFor="account-select" >계좌</label>
                 <select
                     id="account-select"
-
                     value={selectedAccount}
                     onChange={(e) => setSelectedAccount(e.target.value)}
                 >
@@ -404,24 +505,17 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
                         <option key={opt} value={opt}>{opt}</option>
                     ))}
                 </select>
-
-                <button
-                    type="button"
-
-                    onClick={() => setShowColPicker((v) => !v)}
-
-                >
+                <Button variant="secondary" onClick={() => setShowColPicker(v => !v)}>
                     열 선택
-                </button>
-            </div>
+                </Button>
+            </HeaderRow>
 
             {showColPicker && (
-                <div >
+                <ColPicker >
                     <div>
-                        <button onClick={() => setAllCols(true)}>모두 보이기</button>
-                        <button onClick={() => setAllCols(false)}>모두 숨기기</button>
-                        <button
-
+                        <Button onClick={() => setAllCols(true)}>모두 보이기</Button>
+                        <Button onClick={() => setAllCols(false)}>모두 숨기기</Button>
+                        <Button
                             onClick={() => {
                                 const next = headerCells.map((h) => {
                                     const name = normalize(h);
@@ -435,7 +529,7 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
                             }}
                         >
                             기본값 적용
-                        </button>
+                        </Button>
                     </div>
                     <div >
                         {headerCells.map((h, i) => (
@@ -456,14 +550,12 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
                             </label>
                         ))}
                     </div>
-                </div>
+                </ColPicker>
             )}
 
-            <div>
-                <div
-
-                >
-                    <div >
+            <TableWrap>
+                <TableHeader>
+                    <div>
                         <label >
                             <input
                                 type="checkbox"
@@ -482,68 +574,42 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
                             {idx === insertAfterVisible && <div >거래처</div>}
                         </React.Fragment>
                     ))}
-
-                    {visibleIdxs.length === 0 && (
-                        <>
-                            <div >구분</div>
-                            <div >거래처</div>
-                        </>
-                    )}
-                </div>
-
-                <div>
-                    {bodyView.map((row, rIdx) => {
-                        const absIndex = bodyFromAbs + rIdx;
-
-                        const out = expenseIdx >= 0 ? parseNum(row[expenseIdx]) : 0;
-                        const inc = incomeIdx >= 0 ? parseNum(row[incomeIdx]) : 0;
-                        const kind =
-                            out > 0 && inc === 0 ? "비용" :
-                                inc > 0 && out === 0 ? "매출" :
-                                    inc > 0 && out > 0 ? "확인요망" :
-                                        "";
-
-                        return (
-                            <div key={absIndex} >
-                                <div >
-                                    <input
-                                        type="checkbox"
-                                        checked={!!checks[absIndex]}
-                                        onChange={() => toggleRow(absIndex)}
-                                    />
-                                </div>
-
-                                {visibleIdxs.map((i, idx) => (
-                                    <React.Fragment key={i}>
-                                        <div >
-                                            {row[i] == null ? "" : String(row[i])}
-                                        </div>
-                                        {idx === insertAfterVisible && (
-                                            <div >{kind}</div>
-                                        )}
-                                        {idx === insertAfterVisible && (
-                                            <div >
-                                                <PartyPicker
-                                                    value={parties[absIndex] ?? "미확인거래처"}
-                                                    onChange={(v) => {
-                                                        const nv = v || "미확인거래처";
-                                                        setParties((prev) => {
-                                                            const next = [...prev];
-                                                            next[absIndex] = nv;
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    placeholder="거래처"
-                                                />
-                                            </div>
-                                        )}
-                                    </React.Fragment>
-                                ))}
-
-                                {visibleIdxs.length === 0 && (
-                                    <>
+                    {visibleIdxs.map((i, idx) => (
+                        <React.Fragment key={i}>
+                            <div>{String(headerCells[i])}</div>
+                            {idx === insertAfterVisible && <div>구분</div>}
+                            {idx === insertAfterVisible && <div>거래처</div>}
+                        </React.Fragment>
+                    ))}
+                </TableHeader>
+                {bodyView.map((row, rIdx) => {
+                    const absIndex = bodyFromAbs + rIdx;
+                    const out = expenseIdx >= 0 ? parseNum(row[expenseIdx]) : 0;
+                    const inc = incomeIdx >= 0 ? parseNum(row[incomeIdx]) : 0;
+                    const kind =
+                        out > 0 && inc === 0 ? "비용" :
+                            inc > 0 && out === 0 ? "매출" :
+                                inc > 0 && out > 0 ? "확인요망" :
+                                    "";
+                    return (
+                        <TableRow key={absIndex} >
+                            <div >
+                                <input
+                                    type="checkbox"
+                                    checked={!!checks[absIndex]}
+                                    onChange={() => toggleRow(absIndex)}
+                                />
+                            </div>
+                            {visibleIdxs.map((i, idx) => (
+                                <React.Fragment key={i}>
+                                    <div >
+                                        {row[i] == null ? "" : String(row[i])}
+                                    </div>
+                                    {idx === insertAfterVisible && (
                                         <div >{kind}</div>
-                                        <div>
+                                    )}
+                                    {idx === insertAfterVisible && (
+                                        <div >
                                             <PartyPicker
                                                 value={parties[absIndex] ?? "미확인거래처"}
                                                 onChange={(v) => {
@@ -557,29 +623,44 @@ const PreviewPanel: React.FC<Props> = ({ aoa, accountOptions, onConfirm }) => {
                                                 placeholder="거래처"
                                             />
                                         </div>
-                                    </>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
+                                    )}
+                                </React.Fragment>
+                            ))}
 
-            <div >
+                            {visibleIdxs.length === 0 && (
+                                <>
+                                    <div >{kind}</div>
+                                    <div>
+                                        <PartyPicker
+                                            value={parties[absIndex] ?? "미확인거래처"}
+                                            onChange={(v) => {
+                                                const nv = v || "미확인거래처";
+                                                setParties((prev) => {
+                                                    const next = [...prev];
+                                                    next[absIndex] = nv;
+                                                    return next;
+                                                });
+                                            }}
+                                            placeholder="거래처"
+                                        />
+                                    </div>
+                                </>
+                            )}
+                        </TableRow >
+                    );
+                })}
+            </TableWrap>
+
+            <Footer >
                 <span>
                     총 {aoa.length} 행 · 표시 {bodyView.length} 행
                     {selectedAccount ? ` · ${selectedAccount}` : ""}
                 </span>
-                <div >
-                    <button
-                        onClick={handleConfirm}
-                        disabled={submitting}
-                    >
-                        {submitting ? "처리 중…" : "저장하기"}
-                    </button>
-                </div>
-            </div>
-        </section>
+                <Button variant="primary" onClick={handleConfirm} disabled={submitting}>
+                    {submitting ? "처리 중…" : "저장하기"}
+                </Button>
+            </Footer>
+        </Section>
     );
 };
 

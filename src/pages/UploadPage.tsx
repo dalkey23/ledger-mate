@@ -1,11 +1,59 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import styled from "@emotion/styled";
 import { parseWorkbook, type Cell } from "../utils/excel";
 import { saveRecords } from "../features/records/records.repo";
 import { type SavedRecord } from "../features/records/types";
 import PreviewPanel from "../components/PreviewPanel";
+import { Container } from "../components/Container";
+import { Card } from "../components/Card";
+
+/* ===================== styled ===================== */
+
+const Title = styled.h2`
+  margin: 0 0 8px;
+  font-size: 28px;
+  letter-spacing: -0.01em;
+`;
+
+const Subtitle = styled.p`
+  margin: 0 0 20px;
+  color: ${({ theme }) => theme.colors.subText};
+  line-height: 1.6;
+`;
+
+const UploadRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+
+const FileLabel = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  border: 1px solid ${({ theme }) => theme.colors.primary};
+  transition: opacity 0.2s ease, transform 0.02s ease;
+  &:hover { opacity: 0.95; }
+  &:active { transform: translateY(1px); }
+`;
+
+const HiddenFileInput = styled.input`
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+`;
 
 
+/* ===================== helpers ===================== */
 const norm = (s: unknown) => String(s ?? "").replace(/\s|[().·]|원/g, "").toLowerCase();
 const parseNum = (v: unknown) => {
   const n = Number(String(v ?? "").replace(/[,\s₩원]/g, ""));
@@ -18,14 +66,12 @@ const descKeys = ["기재내용", "내용"];
 const expenseKeys = ["지급", "출금", "지출"];
 const incomeKeys = ["입금", "수입"];
 
+/* ===================== component ===================== */
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const [aoa, setAoa] = useState<Cell[][] | null>(null);
 
-  const accountOptions = [
-    "우리 101",
-    "우리 626961",
-  ];
+  const accountOptions = ["우리 101", "우리 626961"];
 
   const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
     const f = e.target.files?.[0];
@@ -92,7 +138,7 @@ const UploadPage: React.FC = () => {
     try {
       const saved = await saveRecords(records);
       alert(`${saved}건 저장 완료`);
-      navigate("/records")
+      navigate("/records");
       setAoa(null);
     } catch (e) {
       console.error(e);
@@ -101,25 +147,34 @@ const UploadPage: React.FC = () => {
   };
 
   return (
-    <div>
-      <h2>엑셀 파일 업로드</h2>
-      <div>
-        <input
-          type="file"
-          accept=".xlsx,.xls"
-          onChange={onFileChange}
-        />
-      </div>
-
-      {/* 🔹 aoa가 있으면 인라인 미리보기 패널 렌더 */}
+    <Container>
+      <Card>
+        <Title>엑셀 파일 업로드</Title>
+        <Subtitle>은행 거래내역 파일(.xlsx/.xls)을 업로드해 미리보기에서 선택 저장합니다.</Subtitle>
+        <UploadRow>
+          <FileLabel>
+            파일 선택
+            <HiddenFileInput
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={onFileChange}
+            />
+          </FileLabel>
+        </UploadRow>
+      </Card>
       {aoa && (
-        <PreviewPanel
-          aoa={aoa}
-          accountOptions={accountOptions}
-          onConfirm={handleConfirm}
-        />
+        <div style={{ marginTop: 16 }}>
+          <Card>
+            <Subtitle>미리보기</Subtitle>
+            <PreviewPanel
+              aoa={aoa}
+              accountOptions={accountOptions}
+              onConfirm={handleConfirm}
+            />
+          </Card>
+        </div>
       )}
-    </div>
+    </Container>
   );
 };
 
