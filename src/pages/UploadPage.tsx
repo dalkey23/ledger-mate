@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "@emotion/styled";
-import { parseWorkbook, type Cell } from "../utils/excel";
-import { saveRecords } from "../features/records/records.repo";
-import { type SavedRecord } from "../features/records/types";
-import PreviewPanel from "../components/PreviewPanel";
-import { Container } from "../components/Container";
-import { Card } from "../components/Card";
+import { parseWorkbook, type Cell } from "@/utils/excel";
+import { saveRecords } from "@features/records/records.repo";
+import { type SavedRecord } from "@features/records/types";
+import PreviewPanel from "@components/PreviewPanel";
+import { Container } from "@components/Container";
+import { Card } from "@components/Card";
 
 /* ===================== styled ===================== */
 
