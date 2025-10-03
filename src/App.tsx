@@ -1,14 +1,18 @@
-import { useRoutes } from "react-router-dom";
-import RecordsPage from "./pages/RecordsPage";
-import UploadPage from "./pages/UploadPage";
+import { Routes, Route } from "react-router-dom";
+import Layout from "./layouts/Layout";
 import LandingPage from "./pages/LandingPage";
+import UploadPage from "./pages/UploadPage";
+import RecordsPage from "./pages/RecordsPage";
+
 
 export default function App() {
-  const routes = useRoutes([
-    { path: "/", element: <LandingPage /> },
-    { path: "/upload", element: <UploadPage /> },
-    { path: "/records", element: <RecordsPage /> },
-  ]);
-  return routes;
+  return (
+    <Routes>
+      <Route element={<Layout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/upload" element={<UploadPage />} />
+        <Route path="/records" element={<RecordsPage />} />
+      </Route>
+    </Routes>
+  );
 }
-
