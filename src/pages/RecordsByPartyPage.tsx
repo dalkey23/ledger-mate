@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllRecords, deleteAllRecords } from "../features/records/records.repo";
-import { type SavedRecord } from "../features/records/types";
-import { Container } from "../components/Container";
-import { Card } from "../components/Card";
-import { Button } from "../components/Button";
+import { getAllRecords, deleteAllRecords } from "@features/records/records.repo";
+import { type SavedRecord } from "@features/records/types";
+import { Container } from "@components/Container";
+import { Card } from "@components/Card";
+import { Button } from "@components/Button";
 import styled from "@emotion/styled";
+import { DataTable, type Column } from "@/components/DataTable";
+import { getPartiesMap } from "@/features/parties/parties.repo";
+import { type PartyId } from "@/types/ids";
 
 /* ============= utils ============= */
 function formatKRW(n: number) {
@@ -19,6 +22,7 @@ function normalizeParty(party?: string) {
   return name.length ? name : "(미지정)";
 }
 
+
 /* ============= styled ============= */
 const Title = styled.h1`
   font-size: 24px;
@@ -26,56 +30,29 @@ const Title = styled.h1`
   color: ${({ theme }) => theme.colors.text};
 `;
 
-const TableWrap = styled.div`
-  overflow-x: auto;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 12px;
-`;
-
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-`;
-
-const Th = styled.th`
-  text-align: left;
-  padding: 12px;
-  background: ${({ theme }) => theme.colors.surface};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  font-weight: 600;
-`;
-
-const Td = styled.td`
-  padding: 12px;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const Tr = styled.tr`
-  &:nth-of-type(even) {
-    background: ${({ theme }) => theme.colors.bg};
-  }
-`;
-
-const FooterTd = styled.td`
-  padding: 12px;
-  font-weight: 600;
-  background: ${({ theme }) => theme.colors.surface};
-  border-top: 2px solid ${({ theme }) => theme.colors.border};
+const HeaderRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
 `;
 
 const ErrorBox = styled.div`
   color: ${({ theme }) => theme.colors.error};
 `;
 
+
 /* ============= types ============= */
 type PartySummary = {
-  party: string;
+  partyId: PartyId;
+  displayName: string;
   payTotal: number;
   recvTotal: number;
   balance: number;
   count: number;
 };
+
 
 /* ============= component ============= */
 const RecordsByPartyPage: React.FC = () => {
@@ -99,112 +76,132 @@ const RecordsByPartyPage: React.FC = () => {
       }
     };
     load();
-  }, [])
+  }, []);
+
+  const [partiesMap, setPartiesMap] = useState<Map<PartyId, { id: PartyId; name: string }>>(new Map());
+  useEffect(() => {
+    getPartiesMap().then(setPartiesMap).catch(() => setPartiesMap(new Map()));
+  }, []);
 
   const summary = useMemo<PartySummary[]>(() => {
     const map = new Map<string, PartySummary>();
     for (const r of rows) {
-      const party = normalizeParty(r.거래처);
+      const key = r.partyId ?? "__none__";
       const pay = Number(r["지급(원)"] || 0);
       const recv = Number(r["입금(원)"] || 0);
-      if (!map.has(party)) {
-        map.set(party, { party, payTotal: 0, recvTotal: 0, balance: 0, count: 0 });
-      }
-      const agg = map.get(party)!;
-      agg.payTotal += isFinite(pay) ? pay : 0;
-      agg.recvTotal += isFinite(recv) ? recv : 0;
-      agg.count += 1;
-    }
-    return Array.from(map.values()).map((x) => ({
-      ...x,
-      balance: x.recvTotal - x.payTotal,
-    })).sort((a, b) => b.balance - a.balance || a.party.localeCompare(b.party, "ko"));
-  }, [rows]);
+      const displayName =
+        (r.partyId && partiesMap.get(r.partyId)?.name) ||
+        (r.거래처?.trim() || "(미지정)");
 
-  const openParty = (party: string) => {
-    navigate(`/parties/${toPartyPath(party)}`);
+      const curr = map.get(key) ?? {
+        partyId: r.partyId ?? null,
+        displayName,
+        payTotal: 0,
+        recvTotal: 0,
+        balance: 0,
+        count: 0,
+      };
+      curr.payTotal += Number.isFinite(pay) ? pay : 0;
+      curr.recvTotal += Number.isFinite(recv) ? recv : 0;
+      curr.count += 1;
+      map.set(key, curr);
+    }
+    return Array.from(map.values())
+      .map((x) => ({ ...x, balance: x.recvTotal - x.payTotal }))
+      .sort((a, b) => b.balance - a.balance || a.displayName.localeCompare(b.displayName, "ko"));
+  }, [rows, partiesMap]);
+
+
+  const openParty = (partyId: PartyId | null) => {
+    if (!partyId) return;
+    navigate(`/records/parties/${partyId}`);
   };
 
   const handleDeleteAll = async () => {
-
     try {
       await deleteAllRecords();
-      navigate("/")
+      navigate("/");
     } catch (e) {
       console.error(e);
       alert("삭제 중 오류가 발생했습니다.");
     }
   };
 
+  /* ===== DataTable 구성 ===== */
+  type Row = PartySummary;
+
+  const columns: Column<Row>[] = useMemo(
+    () => [
+      { key: "displayName", label: "거래처", width: "1fr" },
+      {
+        key: "payTotal",
+        label: "지급합계",
+        width: 160,
+        align: "right",
+        render: (v) => formatKRW(Number(v || 0)),
+      },
+      {
+        key: "recvTotal",
+        label: "입금합계",
+        width: 160,
+        align: "right",
+        render: (v) => formatKRW(Number(v || 0)),
+      },
+      {
+        key: "balance",
+        label: "잔액",
+        width: 160,
+        align: "right",
+        render: (v) => formatKRW(Number(v || 0)),
+      },
+      {
+        key: "__detail__",
+        label: "자세히",
+        width: 120,
+        align: "center",
+        render: (_v, row) => (
+          <Button
+            variant="secondary"
+            onClick={() => openParty(row.partyId)}
+          >
+            자세히보기
+          </Button>
+        ),
+      },
+    ],
+    []
+  );
+
+  const tableRows: Row[] = summary;
+
   return (
     <Container>
       <Card>
-        <div style={{display: "flex", justifyContent: "space-between"}}>
+        <HeaderRow>
           <Title>거래처별 요약</Title>
-          <Button onClick={handleDeleteAll}>
-            전체 삭제
-          </Button>
-        </div>
+          <Button onClick={handleDeleteAll}>전체 삭제</Button>
+        </HeaderRow>
+
         {loading && <div>불러오는 중…</div>}
         {error && <ErrorBox>{error}</ErrorBox>}
-        {!loading && !error && (
-          <TableWrap>
-            <Table>
-              <thead>
-                <tr>
-                  <Th style={{ textAlign: "center" }}>거래처</Th>
-                  <Th style={{ textAlign: "center" }}>지급합계</Th>
-                  <Th style={{ textAlign: "center" }}>입금합계</Th>
-                  <Th style={{ textAlign: "center" }}>잔액</Th>
-                  <Th style={{ textAlign: "center" }}>자세히</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.map((row) => (
-                  <Tr key={row.party}>
-                    <Td>{row.party}</Td>
-                    <Td style={{ textAlign: "right" }}>{formatKRW(row.payTotal)}</Td>
-                    <Td style={{ textAlign: "right" }}>{formatKRW(row.recvTotal)}</Td>
-                    <Td style={{ textAlign: "right" }}>{formatKRW(row.balance)}</Td>
-                    <Td style={{ textAlign: "center" }}>
-                      <Button
-                        variant="secondary"
-                        onClick={() => openParty(row.party)}
-                        aria-label={`${row.party} 자세히보기`}
-                      >
-                        자세히보기
-                      </Button>
-                    </Td>
 
-                  </Tr>
-                ))}
-                {summary.length === 0 && (
-                  <Tr>
-                    <Td colSpan={4} style={{ textAlign: "center", color: "#888" }}>
-                      표시할 데이터가 없습니다.
-                    </Td>
-                  </Tr>
-                )}
-              </tbody>
+        {!loading && !error && summary.length === 0 && (
+          <Card>
+            <div style={{ textAlign: "center", color: "#888", padding: 24 }}>
+              표시할 데이터가 없습니다.
+            </div>
+          </Card>
+        )}
 
-              {summary.length > 0 && (
-                <tfoot>
-                  <tr>
-                    <FooterTd>총계</FooterTd>
-                    <FooterTd style={{ textAlign: "right" }}>
-                      {formatKRW(summary.reduce((s, r) => s + r.payTotal, 0))}
-                    </FooterTd>
-                    <FooterTd style={{ textAlign: "right" }}>
-                      {formatKRW(summary.reduce((s, r) => s + r.recvTotal, 0))}
-                    </FooterTd>
-                    <FooterTd style={{ textAlign: "right" }}>
-                      {formatKRW(summary.reduce((s, r) => s + r.balance, 0))}
-                    </FooterTd>
-                  </tr>
-                </tfoot>
-              )}
-            </Table>
-          </TableWrap>
+        {!loading && !error && summary.length > 0 && (
+          <DataTable<Row>
+            columns={columns}
+            rows={tableRows}
+            rowKey={(r) => r.partyId}
+            stickyHeader
+            minWidth={800}
+            zebra
+          />
         )}
       </Card>
     </Container>

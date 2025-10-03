@@ -1,8 +1,7 @@
-// features/parties/parties.repo.ts
-import { openDB } from "../../db/indexedDb";
+import { openDB } from "@/db/indexedDb";
 import type { Party } from "./types";
-import type { PartyId } from "../../types/ids";
-import { makePartyId } from "../../utils/id";
+import type { PartyId } from "@/types/ids";
+import { makePartyId } from "@/utils/id";
 
 const STORE = "parties";
 
@@ -35,67 +34,63 @@ export async function getPartyById(id: PartyId): Promise<Party | null> {
   });
 }
 
-/** nameNorm 인덱스로 단건 조회 (인덱스는 고유) */
-export async function getPartyByNameNorm(nameNorm: string): Promise<Party | null> {
-  const key = (nameNorm ?? "").trim();
-  if (!key) return null;
+const norm = (s: unknown) =>
+  String(s ?? "").replace(/\s|[().·]|원/g, "").toLowerCase();
 
+export async function getPartyByNameNorm(nameNorm: string): Promise<Party | undefined> {
   const db = await openDB();
-  return new Promise<Party | null>((resolve, reject) => {
-    try {
-      const tx = db.transaction(STORE, "readonly");
-      const os = tx.objectStore(STORE);
-      const idx = os.index("by_nameNorm");
-      const req = idx.get(key);
-      req.onsuccess = () => resolve((req.result as Party) ?? null);
-      req.onerror = () => reject(req.error);
-    } catch (e) {
-      reject(e);
-    }
+  const tx = db.transaction(STORE, "readonly");
+  const idx = tx.objectStore(STORE).index("by_nameNorm");
+  return new Promise((res, rej) => {
+    const r = idx.get(nameNorm);
+    r.onsuccess = () => res(r.result as Party | undefined);
+    r.onerror = () => rej(r.error);
   });
 }
 
-/** 새 거래처 생성 (nameNorm 고유 인덱스로 중복 방지) */
-export async function createParty(
-  name: string,
-  extras?: Partial<Omit<Party, "id" | "name" | "nameNorm" | "createdAt" | "updatedAt" | "freq">>
-): Promise<Party> {
+export async function createParty(name: string): Promise<Party> {
   const db = await openDB();
-  const nameTrim = (name ?? "").trim();
-  if (!nameTrim) throw new Error("createParty: name이 비어있습니다.");
-
-  const nameNorm = normalizePartyName(nameTrim);
-
-  // 중복 체크 (unique index 기준)
-  const dup = await getPartyByNameNorm(nameNorm);
-  if (dup) return dup;
-
   const now = Date.now();
   const party: Party = {
-    id: makePartyId(),          // ✅ "p_…" 문자열 ID
-    name: nameTrim,
-    nameNorm,
-    aliases: [],
-    tags: [],
+    id: (`p_${crypto.randomUUID()}`) as PartyId,
+    name,
+    nameNorm: norm(name),
+    freq: 0,
     createdAt: now,
     updatedAt: now,
-    freq: 0,
-    ...(extras ?? {}),
   };
-
-  await new Promise<void>((resolve, reject) => {
-    try {
-      const tx = db.transaction(STORE, "readwrite");
-      const os = tx.objectStore(STORE);
-      const addReq = os.add(party);
-      addReq.onsuccess = () => resolve();
-      addReq.onerror = () => reject(addReq.error);
-    } catch (e) {
-      reject(e);
-    }
+  const tx = db.transaction(STORE, "readwrite");
+  await new Promise<void>((res, rej) => {
+    const r = tx.objectStore(STORE).add(party);
+    r.onsuccess = () => res();
+    r.onerror = () => rej(r.error);
   });
-
   return party;
+}
+
+export async function upsertPartyByName(name: string): Promise<Party> {
+  const nameTrim = name.trim();
+  const dup = await getPartyByNameNorm(norm(nameTrim));
+  return dup ?? createParty(nameTrim);
+}
+
+/** id → Party 맵 (displayName용) */
+export async function getPartiesMap(): Promise<Map<PartyId, Party>> {
+  const db = await openDB();
+  const tx = db.transaction(STORE, "readonly");
+  const store = tx.objectStore(STORE);
+  return new Promise((res, rej) => {
+    const m = new Map<PartyId, Party>();
+    const cur = store.openCursor();
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) return res(m);
+      const v = c.value as Party;
+      m.set(v.id, v);
+      c.continue();
+    };
+    cur.onerror = () => rej(cur.error);
+  });
 }
 
 /** 사용 빈도 증가 (자동완성/추천 가중치) */

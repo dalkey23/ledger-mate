@@ -1,28 +1,40 @@
-import { openDB } from "../../db/indexedDb";
+import { openDB } from "@/db/indexedDb";
 import type { SavedRecord } from "./types";
 
 const STORE = "records";
 
 export async function saveRecords(records: SavedRecord[]): Promise<number> {
-  if (records.length === 0) return 0;
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, "readwrite");
-    const os = tx.objectStore(STORE);
-    for (const r of records) os.add(r);
-    tx.oncomplete = () => resolve(records.length);
-    tx.onerror = () => reject(tx.error);
-  });
+  const tx = db.transaction(STORE, "readwrite");
+  const store = tx.objectStore(STORE);
+  let cnt = 0;
+  await Promise.all(
+    records.map(
+      (rec) =>
+        new Promise<void>((res, rej) => {
+          const r = store.add(rec);
+          r.onsuccess = () => { cnt++; res(); };
+          r.onerror  = () => rej(r.error);
+        }),
+    ),
+  );
+  return cnt;
 }
 
 export async function getAllRecords(): Promise<SavedRecord[]> {
   const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE, "readonly");
-    const os = tx.objectStore(STORE);
-    const req = os.getAll();
-    req.onsuccess = () => resolve(req.result as SavedRecord[]);
-    req.onerror = () => reject(req.error);
+  const tx = db.transaction(STORE, "readonly");
+  const store = tx.objectStore(STORE);
+  return new Promise((res, rej) => {
+    const out: SavedRecord[] = [];
+    const cur = store.openCursor();
+    cur.onsuccess = () => {
+      const c = cur.result;
+      if (!c) return res(out);
+      out.push(c.value as SavedRecord);
+      c.continue();
+    };
+    cur.onerror = () => rej(cur.error);
   });
 }
 
@@ -39,6 +51,23 @@ export async function deleteAllRecords(): Promise<number> {
       clearReq.onerror = () => reject(clearReq.error);
     };
     countReq.onerror = () => reject(countReq.error);
+  });
+}
+
+export async function getRecordsByPartyId(partyId: string) {
+  const db = await openDB();
+  const idx = db.transaction(STORE, "readonly").objectStore(STORE).index("by_partyId");
+  return new Promise<SavedRecord[]>((res, rej) => {
+    const out: SavedRecord[] = [];
+    const keyRange = IDBKeyRange.only(partyId);
+    const req = idx.openCursor(keyRange);
+    req.onsuccess = () => {
+      const cur = req.result;
+      if (!cur) return res(out);
+      out.push(cur.value as SavedRecord);
+      cur.continue();
+    };
+    req.onerror = () => rej(req.error);
   });
 }
 

@@ -7,6 +7,9 @@ import { type SavedRecord } from "@features/records/types";
 import PreviewPanel from "@features/upload/PreviewPanel";
 import { Container } from "@components/Container";
 import { Card } from "@components/Card";
+import { upsertPartyByName } from "@/features/parties/parties.repo";
+import type { PartyId } from "@/types/ids"
+
 
 /* ===================== styled ===================== */
 
@@ -74,27 +77,27 @@ const UploadPage: React.FC = () => {
 
   const accountOptions = ["우리 101416", "우리 626961"];
 
-const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-  const input = e.currentTarget;          
-  const file = input.files?.[0];
-  if (!file) return;
+  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
 
-  try {
-    const data = await parseWorkbook(file);
-    setAoa(data);
-  } catch (err) {
-    console.error(err);
-    alert("엑셀 파싱 중 오류가 발생했습니다.");
-  } finally {
-    if (input) input.value = "";         
-  }
-};
+    try {
+      const data = await parseWorkbook(file);
+      setAoa(data);
+    } catch (err) {
+      console.error(err);
+      alert("엑셀 파싱 중 오류가 발생했습니다.");
+    } finally {
+      if (input) input.value = "";
+    }
+  };
 
   const handleConfirm = async (payload: {
-    startRow: number;             
+    startRow: number;
     selectedAccount: string;
-    selectedChecks: boolean[];    
-    parties: string[];            
+    selectedChecks: boolean[];
+    parties: string[];
   }) => {
     if (!aoa) return;
     const { startRow, selectedAccount, selectedChecks, parties } = payload;
@@ -105,8 +108,27 @@ const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
 
     const dateIdx = findCol(headers, dateKeys);
     const descIdx = findCol(headers, descKeys);
-    const outIdx  = findCol(headers, expenseKeys);
-    const incIdx  = findCol(headers, incomeKeys);
+    const outIdx = findCol(headers, expenseKeys);
+    const incIdx = findCol(headers, incomeKeys);
+
+    const defaultParty = await upsertPartyByName("미확인거래처");
+    const defaultId: PartyId = defaultParty.id;
+
+    const names = new Set<string>();
+    for (let i = bodyFrom; i < aoa.length; i++) {
+      if (!selectedChecks[i]) continue;
+      const name = (parties[i] ?? "").trim();
+      if (name) names.add(name);
+    }
+
+    const nameToId = new Map<string, PartyId>();
+    for (const name of names) {
+      const p = await upsertPartyByName(name);
+      nameToId.set(name, p.id);
+    }
+
+    const getPartyId = (name?: string): PartyId =>
+      nameToId.get((name ?? "").trim()) ?? defaultId;
 
     const records: SavedRecord[] = [];
     for (let abs = bodyFrom; abs < aoa.length; abs++) {
@@ -118,9 +140,9 @@ const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
 
       const kind =
         out > 0 && inc === 0 ? "비용" :
-        inc > 0 && out === 0 ? "매출" :
-        inc > 0 && out > 0   ? "확인요망" :
-        "" as const;
+          inc > 0 && out === 0 ? "매출" :
+            inc > 0 && out > 0 ? "확인요망" :
+              "" as const;
 
       records.push({
         계좌: selectedAccount || "",
@@ -129,7 +151,8 @@ const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
         "지급(원)": out,
         "입금(원)": inc,
         구분: kind,
-        거래처: (parties[abs] ?? "미확인거래처") || "미확인거래처",
+        거래처: parties[abs] ?? "미확인거래처",
+        partyId: getPartyId(parties[abs]),
         비고: "",
       });
     }
