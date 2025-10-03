@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAllRecords } from "../features/records/records.repo";
+import { getAllRecords, deleteAllRecords } from "../features/records/records.repo";
 import { type SavedRecord } from "../features/records/types";
 import { Container } from "../components/Container";
 import { Card } from "../components/Card";
@@ -125,10 +125,26 @@ const RecordsByPartyPage: React.FC = () => {
     navigate(`/parties/${toPartyPath(party)}`);
   };
 
+  const handleDeleteAll = async () => {
+
+    try {
+      await deleteAllRecords();
+      navigate("/")
+    } catch (e) {
+      console.error(e);
+      alert("삭제 중 오류가 발생했습니다.");
+    }
+  };
+
   return (
     <Container>
       <Card>
-        <Title>거래처별 요약</Title>
+        <div style={{display: "flex", justifyContent: "space-between"}}>
+          <Title>거래처별 요약</Title>
+          <Button onClick={handleDeleteAll}>
+            전체 삭제
+          </Button>
+        </div>
         {loading && <div>불러오는 중…</div>}
         {error && <ErrorBox>{error}</ErrorBox>}
         {!loading && !error && (
