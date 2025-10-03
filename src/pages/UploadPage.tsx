@@ -4,7 +4,7 @@ import styled from "@emotion/styled";
 import { parseWorkbook, type Cell } from "@/utils/excel";
 import { saveRecords } from "@features/records/records.repo";
 import { type SavedRecord } from "@features/records/types";
-import PreviewPanel from "@components/PreviewPanel";
+import PreviewPanel from "@features/upload/PreviewPanel";
 import { Container } from "@components/Container";
 import { Card } from "@components/Card";
 
@@ -61,8 +61,9 @@ const parseNum = (v: unknown) => {
 };
 const findCol = (headers: any[], keys: string[]) =>
   headers.findIndex((h) => keys.some((k) => norm(h).includes(norm(k))));
+
 const dateKeys = ["거래일시", "거래일자", "일시", "거래시간"];
-const descKeys = ["기재내용", "내용"];
+const descKeys = ["기재내용"];
 const expenseKeys = ["지급", "출금", "지출"];
 const incomeKeys = ["입금", "수입"];
 
@@ -71,26 +72,29 @@ const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const [aoa, setAoa] = useState<Cell[][] | null>(null);
 
-  const accountOptions = ["우리 101", "우리 626961"];
+  const accountOptions = ["우리 101416", "우리 626961"];
 
-  const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    try {
-      const data = await parseWorkbook(f);
-      setAoa(data);
-    } catch (err) {
-      console.error(err);
-      alert("엑셀 파싱 중 오류가 발생했습니다.");
-    }
-    e.currentTarget.value = "";
-  };
+const onFileChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
+  const input = e.currentTarget;          
+  const file = input.files?.[0];
+  if (!file) return;
+
+  try {
+    const data = await parseWorkbook(file);
+    setAoa(data);
+  } catch (err) {
+    console.error(err);
+    alert("엑셀 파싱 중 오류가 발생했습니다.");
+  } finally {
+    if (input) input.value = "";         
+  }
+};
 
   const handleConfirm = async (payload: {
-    startRow: number;             // 1-based
+    startRow: number;             
     selectedAccount: string;
-    selectedChecks: boolean[];    // aoa 전체 길이 기준
-    parties: string[];            // aoa 전체 길이 기준
+    selectedChecks: boolean[];    
+    parties: string[];            
   }) => {
     if (!aoa) return;
     const { startRow, selectedAccount, selectedChecks, parties } = payload;
@@ -165,7 +169,7 @@ const UploadPage: React.FC = () => {
       {aoa && (
         <div style={{ marginTop: 16 }}>
           <Card>
-            <Subtitle>미리보기</Subtitle>
+            <Title>미리보기</Title>
             <PreviewPanel
               aoa={aoa}
               accountOptions={accountOptions}
