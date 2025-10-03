@@ -1,11 +1,13 @@
+import type { PartyId } from "@/types/ids";
+
+
 export interface Party {
-    id: string;         
-    name: string;       
-    nameNorm: string;   
-    aliases?: string[];
-    tags?: string[];
-    createdAt: number;  
-    updatedAt: number;  
-    freq: number;       
-  }
-  
+  id: PartyId;
+  name: string;
+  nameNorm: string;
+  aliases?: string[];
+  tags?: string[];
+  createdAt: number;
+  updatedAt: number;
+  freq: number;
+}
