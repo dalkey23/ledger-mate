@@ -78,7 +78,7 @@ type PartySummary = {
 };
 
 /* ============= component ============= */
-const RecordsPage: React.FC = () => {
+const RecordsByPartyPage: React.FC = () => {
   const navigate = useNavigate();
   const [rows, setRows] = useState<SavedRecord[]>([]);
   const [loading, setLoading] = useState(false);
@@ -195,4 +195,4 @@ const RecordsPage: React.FC = () => {
   );
 };
 
-export default RecordsPage;
+export default RecordsByPartyPage;

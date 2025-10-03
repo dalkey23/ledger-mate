@@ -138,7 +138,7 @@ const UploadPage: React.FC = () => {
     try {
       const saved = await saveRecords(records);
       alert(`${saved}건 저장 완료`);
-      navigate("/records");
+      navigate("/records/parties");
       setAoa(null);
     } catch (e) {
       console.error(e);

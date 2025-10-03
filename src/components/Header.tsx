@@ -67,7 +67,7 @@ export default function Header() {
 
                 <Nav aria-label="Primary">
                     <NavItem to="/upload" end>Upload</NavItem>
-                    <NavItem to="/records" end>Records</NavItem>
+                    <NavItem to="/records/parties" end>Records</NavItem>
                 </Nav>
             </HeaderInner>
         </HeaderWrap>

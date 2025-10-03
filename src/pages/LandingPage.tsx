@@ -13,7 +13,7 @@ const LandingPage: React.FC = () => {
         <Title>LedgerMate</Title>
         <div style={{ display: "flex", gap: 12 }}>
           <Link to="/upload">엑셀 업로드</Link>
-          <Link to="/records">내역 확인</Link>
+          <Link to="/records/parties">내역 확인</Link>
         </div>
       </Card>
     </Container>
