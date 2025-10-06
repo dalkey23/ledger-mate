@@ -23,7 +23,7 @@ export type DataTableProps<T> = {
 const TableWrap = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
-  overflow: auto; /* 가로/세로 스크롤 모두 지원 */
+  overflow: auto; 
   margin-bottom: 16px;
 `;
 

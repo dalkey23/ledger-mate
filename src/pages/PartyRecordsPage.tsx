@@ -5,6 +5,30 @@ import type { SavedRecord } from "@/features/records/types";
 import type { PartyId } from "@/types/ids";
 import { DataTable, type Column } from "@/components/DataTable";
 import { getPartyById } from "@/features/parties/parties.repo";
+import Modal from "@/components/Modal";
+import { Button } from "@/components/Button";
+import { Card } from "@/components/Card";
+import { Container } from "@components/Container";
+import styled from "@emotion/styled";
+
+/* ============= styled ============= */
+const Title = styled.h1`
+  font-size: 24px;
+  margin: 0 0 20px;
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const HeaderRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+`;
+
+function formatKRW(n: number) {
+  return n.toLocaleString("ko-KR");
+}
 
 const PartyRecordsPage: React.FC = () => {
   const { partyId } = useParams<{ partyId: PartyId }>();
@@ -12,6 +36,7 @@ const PartyRecordsPage: React.FC = () => {
   const [partyName, setPartyName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
   useEffect(() => {
     if (!partyId) return;
@@ -76,12 +101,14 @@ const PartyRecordsPage: React.FC = () => {
       label: "지급(원)",
       width: 140,
       align: "right",
+      render: (v) => formatKRW(Number(v || 0)),
     },
     {
       key: "입금(원)",
       label: "입금(원)",
       width: 140,
       align: "right",
+      render: (v) => formatKRW(Number(v || 0)),
     },
     {
       key: "비고",
@@ -92,15 +119,20 @@ const PartyRecordsPage: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div>
-        <h1>
+    <Container>
+      <Card>
+        <HeaderRow>
+        <Title>
           거래처 상세
-        </h1>
+        </Title>
+
+        <Button onClick={() => setBulkModalOpen(true)}>
+          거래처 수정
+        </Button>
+      </HeaderRow>
         <p>
           Party ID: {partyName || partyId} · 건수 {rows.length}건
         </p>
-      </div>
 
       {loading && <div>불러오는 중…</div>}
       {error && <div>{error}</div>}
@@ -121,7 +153,29 @@ const PartyRecordsPage: React.FC = () => {
           zebra
         />
       )}
-    </div>
+
+      <Modal
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
+        title="거래처 일괄 수정"
+      >
+        <div className="text-sm text-zinc-600">
+          (다음 단계) 체크박스 있는 목록과 거래처 검색 UI를 여기에 넣을 예정입니다.
+          <br />
+          지금은 모달 띄우기까지만 연결했습니다.
+        </div>
+
+        <div>
+          <Button>수정</Button>
+          <Button variant="secondary" onClick={() => setBulkModalOpen(false)}>
+            닫기
+          </Button>
+        </div>
+      </Modal>
+      </Card>
+    </Container>
+
+
   );
 };
 
